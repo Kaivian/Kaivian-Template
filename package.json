@@ -1,0 +1,12 @@
+{
+  "name": "kaivian_template",
+  "version": "1.0.0",
+  "description": "Scaffold full-stack app: kailib init <app-name>",
+  "type": "module",
+  "bin": { "kailib": "cli.js" },
+  "license": "MIT",
+  "dependencies": {
+    "fs-extra": "^11.2.0",
+    "minimist": "^1.2.8"
+  }
+}
