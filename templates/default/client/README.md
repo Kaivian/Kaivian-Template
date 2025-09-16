@@ -27,18 +27,12 @@ From the monorepo root using the workspace flag:
 - `npm run build -w client` – Build for production
 - `npm run start -w client` – Start production server (after build)
 - `npm run lint -w client`  – Lint and auto-fix
-- `npm run debug -w client` – Start Next.js with Node inspector for debugging
 
 From within `client/` directly:
 - `npm run dev`
 - `npm run build`
 - `npm start`
 - `npm run lint`
-- `npm run debug`
-
-## Debugging
-- Run `npm run debug -w client` from the monorepo root (or `npm run debug` within `client/`). Then attach a debugger to the Node process on the default inspector port (9229).
-- A pre-configured VS Code launch config is available at `.vscode/launch.json` in the monorepo root (select "Client: Debug Next.js").
 
 ## Project Structure
 ```

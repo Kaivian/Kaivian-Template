@@ -28,7 +28,6 @@ From the monorepo root using the workspace flag:
 - `npm run build -w server` – Build step placeholder (currently no build)
 - `npm run test -w server`  – Run server tests once (Node built-in test runner)
 - `npm run test:watch -w server` – Watch mode for tests
-- `npm run debug -w server` – Start server with Node inspector via nodemon
 
 From within `server/` directly:
 - `npm run dev`
@@ -36,7 +35,6 @@ From within `server/` directly:
 - `npm run build`
 - `npm test`
 - `npm run test:watch`
-- `npm run debug`
 
 ## Environment Variables
 Copy `.env.example` to `.env` inside the `server/` folder and edit values:

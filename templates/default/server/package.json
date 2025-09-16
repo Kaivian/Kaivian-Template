@@ -8,8 +8,7 @@
     "start": "node src/index.js",
     "build": "echo \"no build step\"",
     "test": "node --test",
-    "test:watch": "node --test --watch",
-    "debug": "nodemon --inspect"
+    "test:watch": "node --test --watch"
   },
   "dependencies": {
     "cors": "^2.8.5",
