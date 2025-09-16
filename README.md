@@ -149,4 +149,4 @@ npm run dev -w client
   - Check versions and upgrade to meet prerequisites.
 
 ## License
-MIT © 2025 Thế Lực
+MIT © 2025 Kaivian

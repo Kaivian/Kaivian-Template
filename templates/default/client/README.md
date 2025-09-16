@@ -64,4 +64,4 @@ If your server runs on a different port (e.g., 4000), ensure API calls point to 
 - Styles not applying: ensure Tailwind/PostCSS (if used) are properly configured and imported.
 
 ## License
-MIT © {{year}} {{licenseHolder}}
+MIT © 2025 Kaivian

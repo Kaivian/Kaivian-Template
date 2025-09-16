@@ -17,12 +17,14 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # local env files
 .env*.local
@@ -34,6 +36,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# IDE/editor
+.vscode/
+.idea/
+
+# lock files (intentionally ignored in client workspace)
 pnpm-lock.yaml
 yarn.lock
 package-lock.json

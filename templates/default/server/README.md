@@ -72,4 +72,4 @@ Consider a process manager (e.g., PM2) or containerization for deployments.
 - CORS issues: configure allowed origins in your CORS setup inside `src/index.js`.
 
 ## License
-MIT © {{year}} {{licenseHolder}}
+MIT © 2025 Kaivian

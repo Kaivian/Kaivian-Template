@@ -1,0 +1,48 @@
+# Monorepo root ignores
+
+# Dependencies
+node_modules/
+
+# Builds and outputs
+.dist/
+dist/
+build/
+out/
+coverage/
+
+# Next.js artifacts (client workspace)
+client/.next/
+client/out/
+
+# Server build outputs
+server/dist/
+server/build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example
+client/.env.local
+client/.env*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.log
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Vercel (client)
+client/.vercel
+
+# TypeScript (client)
+client/*.tsbuildinfo
+client/next-env.d.ts
