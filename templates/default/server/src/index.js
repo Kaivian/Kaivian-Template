@@ -27,19 +27,26 @@ app.use((req, res) => {
   res.status(404).json({ error: "Not Found", path: req.path });
 });
 
-// Start server
-const server = app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
+// Start server unless running tests
+let server;
+if (process.env.NODE_ENV !== "test") {
+  server = app.listen(PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`Server listening on http://localhost:${PORT}`);
+  });
+}
 
-// Graceful shutdown
+// Graceful shutdown (only if server started)
 function shutdown() {
   // eslint-disable-next-line no-console
   console.log("Shutting down server...");
-  server.close(() => {
+  if (server) {
+    server.close(() => {
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 }
 
 process.on("SIGINT", shutdown);

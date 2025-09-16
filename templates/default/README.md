@@ -20,15 +20,25 @@ This runs `server` and `client` concurrently. Open the client URL it prints (usu
 
 ## Scripts
 From the project root:
-- `npm run dev`   - Run server and client in parallel (development)
-- `npm run build` - Build server then client (production)
-- `npm start`     - Start both in production (after build)
+- `npm run dev`        - Run server and client in parallel (development)
+- `npm run build`      - Build server then client (production)
+- `npm start`          - Start both in production (after build)
+- `npm test`           - Run automated tests (currently server tests)
+- `npm run test:watch` - Watch mode for tests
+- `npm run debug`      - Debug both workspaces (server inspector + Next.js inspector)
 
 To run scripts within a specific workspace:
 ```bash
 npm run dev -w server
 npm run dev -w client
+npm run test -w server
+npm run debug -w server
+npm run debug -w client
 ```
+
+## Debugging
+- VS Code users: open the folder and use the launch configurations in `.vscode/launch.json` ("Server: Debug (Nodemon)" or "Client: Debug Next.js").
+- Or run `npm run debug` (root) to launch both with inspectors, then attach your debugger to port 9229.
 
 ## File Structure
 ```
