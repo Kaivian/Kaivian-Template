@@ -2,6 +2,7 @@
   "name": "kaivian_template_app",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
   "workspaces": ["server", "client"],
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",

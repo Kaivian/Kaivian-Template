@@ -23,6 +23,10 @@ function copyTemplate(src, dst, vars) {
     const dstPath = path.join(dst, outName);
 
     if (e.isDirectory()) {
+      // Skip copying node_modules directories from templates
+      if (e.name === "node_modules") {
+        continue;
+      }
       fs.mkdirpSync(dstPath);
       copyTemplate(srcPath, dstPath, vars);
     } else {
