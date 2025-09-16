@@ -23,7 +23,7 @@ From the project root:
 - `npm run dev`        - Run server and client in parallel (development)
 - `npm run build`      - Build server then client (production)
 - `npm start`          - Start both in production (after build)
-- `npm test`           - Run automated tests, including a fullstack test that starts both client and server, performs a request from the client to the backend (`/api/backend-health` → server `/api/health`), and then shuts both down automatically.
+- `npm test`           - Run automated tests for the server workspace.
 - `npm run test:watch` - Watch mode for tests
 
 To run scripts within a specific workspace:
