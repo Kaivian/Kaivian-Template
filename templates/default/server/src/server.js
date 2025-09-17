@@ -1,6 +1,6 @@
 import serverInstance, { app } from "./app.js";
-import { env } from "./lib/env.js";
-import { log } from "./lib/logger.js";
+import { env } from "./config/env.js";
+import { log } from "./utils/logger.js";
 
 // Start server unless running tests
 if (process.env.NODE_ENV !== "test") {

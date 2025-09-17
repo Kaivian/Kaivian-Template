@@ -34,21 +34,81 @@ npm run test -w server
 ```
 
 ## File Structure
+This repository is organized as a **monorepo** with two main workspaces: **client** (frontend, Next.js + Tailwind) and **server** (backend, Node.js + Express).
+
+---
+
+## Monorepo Root
 ```
-./
-├─ LICENSE
-├─ package.json            # npm workspaces & orchestration scripts
-├─ server/                 # Node.js backend
-│  ├─ package.json
-│  ├─ src/
-│  └─ .env.example
-└─ client/                 # Next.js frontend (App Router)
-   ├─ package.json
-   ├─ app/
-   ├─ components/
-   ├─ config/
-   └─ public/
+./                                   # Monorepo root (npm workspaces)
+├─ LICENSE                           # MIT license for the entire project
+├─ package.json                      # Root scripts (dev/build/start); defines workspaces
+├─ templates/default/                # Default template used by the Kaivian generator
+│  ├─ LICENSE                        # Template-specific license
+│  ├─ README.md                      # Template usage and structure guide
+│  ├─ package.json                   # Template-level scripts for managing both workspaces
+│  ├─ package-lock.json              # Locked dependencies for reproducibility
 ```
+---
+
+## Client (Frontend)
+The `client` workspace is a **Next.js App Router** application styled with **TailwindCSS**, containing reusable components, services, and utilities.
+
+```
+client/
+ ├─ .vscode/              # VSCode settings and workspace configuration
+ ├─ app/                  # Next.js App Router pages, layouts, providers
+ ├─ components/           # Reusable UI components (buttons, forms, widgets, etc.)
+ ├─ config/               # Frontend configuration (fonts, metadata, constants)
+ ├─ hook/                 # Custom React hooks for shared state and logic
+ ├─ lib/                  # Utility libraries and client-side helpers
+ ├─ public/               # Static assets (images, icons, favicon)
+ ├─ service/              # API service layer to interact with the backend
+ ├─ styles/               # Global CSS and Tailwind base configuration
+ ├─ types/                # TypeScript type definitions and interfaces
+ ├─ utils/                # Utility functions (validators, formatters, converters)
+ ├─ .env.example          # Example environment variables file
+ ├─ .gitignore            # Git ignore rules for the client workspace
+ ├─ .npmrc                # NPM settings for dependency resolution
+ ├─ eslint.config.mjs     # Flat ESLint configuration for code quality
+ ├─ middleware.ts         # Next.js middleware (auth, request interception, etc.)
+ ├─ next.config.js        # Next.js configuration (plugins, rewrites, headers)
+ ├─ package.json          # Dependencies and scripts for the client
+ ├─ postcss.config.js     # PostCSS configuration (used by Tailwind)
+ ├─ README.md             # Client-specific documentation
+ ├─ tailwind.config.js    # TailwindCSS configuration
+ └─ tsconfig.json         # TypeScript configuration
+```
+---
+
+## Server (Backend)
+The `server` workspace is a **Node.js + Express** backend organized with layered architecture, providing APIs, business logic, and database access.
+
+```
+server/
+  ├─ src/
+    ├─ config/           # Environment and application-level configuration
+    ├─ controller/       # Controllers: handle incoming requests and responses
+    ├─ lib/              # Backend utility modules (helpers, integrations)
+    ├─ middleware/       # Express middleware (auth, logging, error handling)
+    ├─ model/            # Database models and schema definitions
+    ├─ repository/       # Data access layer (queries, CRUD operations)
+    ├─ route/            # API route definitions mapped to controllers
+    ├─ service/          # Business logic between controllers and repository
+    ├─ utils/            # Helper utilities used across the backend
+    ├─ app.js            # Express app initialization (middleware, routes, error handlers)
+    ├─ server.js         # Entry point to start the server
+    └─ seed.js           # Script for seeding initial data into the database
+```
+---
+
+What to edit most often
+- Backend: templates/default/server/src/app.js to add routes/middleware; env.js for new variables; route/ to add endpoints.
+- Frontend: templates/default/client/app/ for pages; components/ for UI; config/site.ts for app metadata.
+
+Conventions
+- Keep server-only env in server/.env (copy from server/.env.example).
+- Run workspace scripts via npm -w <workspace> <script> when targeting a single app.
 
 ## Environment Variables
 Copy `.env.example` to `.env` in the `server` workspace and adjust values as needed.

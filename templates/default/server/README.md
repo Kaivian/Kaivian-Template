@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-The dev script runs nodemon, which reloads on file changes. The default start port is typically configured in `src/index.js` (often 4000). Adjust as needed.
+The dev script runs nodemon, which reloads on file changes. The default start port is typically configured in `src/server.js` (often 4000). Adjust as needed.
 
 ## Scripts
 From the monorepo root using the workspace flag:
@@ -53,15 +53,15 @@ Load order is handled via `dotenv` in the code. Do not commit real secrets to ve
 server/
 ├─ package.json
 ├─ src/
-│  └─ index.js        # Express app bootstrap (routes, middleware)
-└─ .env.example       # Template for environment variables
+│  └─ server.js        # Express app bootstrap (routes, middleware)
+└─ .env.example        # Template for environment variables
 ```
 
 - Add routes/controllers under `src/` as your app grows.
-- Middleware such as `cors` and `morgan` can be configured in `src/index.js`.
+- Middleware such as `cors` and `morgan` can be configured in `src/server.js`.
 
 ## API
-This template starts from a minimal Express setup. Open `src/index.js` to see available routes (e.g., a health check). Extend with additional routes, controllers, and services as needed.
+This template starts from a minimal Express setup. Open `src/server.js` to see available routes (e.g., a health check). Extend with additional routes, controllers, and services as needed.
 
 ## Production
 Build step is currently a no-op. For production, ensure environment variables are set and run:
@@ -73,7 +73,7 @@ Consider a process manager (e.g., PM2) or containerization for deployments.
 ## Troubleshooting
 - Port already in use: change `PORT` in `.env` or stop the conflicting process.
 - Changes not reloading: ensure `nodemon` is installed (dev dependency) and you’re using the `dev` script.
-- CORS issues: configure allowed origins in your CORS setup inside `src/index.js`.
+- CORS issues: configure allowed origins in your CORS setup inside `src/server.js`.
 
 ## License
 MIT © 2025 Kaivian

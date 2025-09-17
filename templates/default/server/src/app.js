@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import healthRoute from "./route/health.js";
-import { env } from "./lib/env.js";
-import { log } from "./lib/logger.js";
+import healthRoute from "./routes/health.js";
+import { env } from "./config/env.js";
+import { log } from "./utils/logger.js";
 
 // OOP-style server wrapper to keep things organized and testable
 export class AppServer {
@@ -24,7 +24,7 @@ export class AppServer {
   }
 
   _registerRoutes(_options) {
-    // basic root route
+    // basic root routes
     this.app.get("/", (_req, res) => {
       res.json({ message: `${env.APP_NAME} API is running` });
     });
