@@ -1,5 +1,5 @@
 // server/src/utils/auth/jwt.js
-import { env } from "/server/src/config/env.js";
+import { env } from "../../config/env.js";
 import jwt from "jsonwebtoken";
 
 const {

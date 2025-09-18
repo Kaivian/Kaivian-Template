@@ -1,59 +1,91 @@
 // server/src/services/auth/refreshTokenService.js
-import RefreshToken from "/server/src/models/auth/refreshTokenModel.js";
+import * as RefreshTokenRepo from "../../repositories/auth/refreshTokenRepository.js";
 
 /**
- * Create a new refresh token in DB.
- * @param {Object} data
- * @param {string} data.userId - User ID associated with token
- * @param {string} data.token - Refresh token string
- * @param {Date} data.expiresAt - Expiration date of the token
- * @returns {Promise<import("/server/src/models/auth/refreshTokenModel.js").default>}
+ * Create a new refresh token in the database.
+ *
+ * - Deletes all previous refresh tokens for the user to ensure only one active token.
+ * - Creates and persists a new refresh token.
+ *
+ * @async
+ * @function createToken
+ * @param {Object} params - Token creation parameters.
+ * @param {string} params.userId - ID of the user.
+ * @param {string} params.token - The refresh token string.
+ * @param {Date} params.expiresAt - Expiration date of the token.
+ * @param {string|null} [params.createdByIp] - IP address where the token was issued.
+ * @returns {Promise<import("../../models/auth/refreshTokenModel.js").default>} The newly created refresh token document.
  */
-export const createToken = async ({ userId, token, expiresAt }) => {
-  return RefreshToken.create({ userId, token, expiresAt });
+export const createToken = async ({ userId, token, expiresAt, createdByIp }) => {
+  await RefreshTokenRepo.deleteMany({ user: userId });
+  
+  return RefreshTokenRepo.create({
+    user: userId,
+    token,
+    expiresAt,
+    createdByIp,
+  });
 };
 
 /**
  * Find a valid (not revoked) refresh token by token string and user ID.
- * @param {string} token - The refresh token string
- * @param {string} userId - User ID
- * @returns {Promise<import("/server/src/models/auth/refreshTokenModel.js").default|null>}
+ *
+ * @async
+ * @function findToken
+ * @param {string} token - Refresh token string
+ * @param {string} userId - ID of the user
+ * @returns {Promise<Object|null>} The refresh token document if found, otherwise null
  */
 export const findToken = async (token, userId) => {
-  return RefreshToken.findOne({ token, userId, revokedAt: null });
+  return RefreshTokenRepo.findOne({
+    token,
+    user: userId,
+    revokedAt: null,
+  });
 };
 
 /**
- * Revoke a refresh token (set revokedAt to current date).
- * @param {string} token - The refresh token string to revoke
- * @returns {Promise<import("/server/src/models/auth/refreshTokenModel.js").default|null>}
+ * Revoke a refresh token.
+ *
+ * @async
+ * @function revokeToken
+ * @param {string} token - Refresh token string
+ * @param {string|null} [revokedByIp=null] - IP address of the client revoking the token
+ * @returns {Promise<Object|null>} Updated refresh token document if found, otherwise null
  */
-export const revokeToken = async (token) => {
-  return RefreshToken.findOneAndUpdate(
+export const revokeToken = async (token, revokedByIp = null) => {
+  return RefreshTokenRepo.findOneAndUpdate(
     { token },
-    { revokedAt: new Date() },
+    { revokedAt: new Date(), revokedByIp },
     { new: true }
   );
 };
 
 /**
- * Revoke all refresh tokens for a user (optional utility)
- * @param {string} userId
- * @returns {Promise<number>} - Number of tokens revoked
+ * Revoke all refresh tokens for a user.
+ *
+ * @async
+ * @function revokeAllTokensForUser
+ * @param {string} userId - ID of the user
+ * @param {string|null} [revokedByIp=null] - IP address of the client revoking the tokens
+ * @returns {Promise<number>} Number of tokens revoked
  */
-export const revokeAllTokensForUser = async (userId) => {
-  const result = await RefreshToken.updateMany(
-    { userId, revokedAt: null },
-    { revokedAt: new Date() }
+export const revokeAllTokensForUser = async (userId, revokedByIp = null) => {
+  const result = await RefreshTokenRepo.updateMany(
+    { user: userId, revokedAt: null },
+    { revokedAt: new Date(), revokedByIp }
   );
   return result.modifiedCount;
 };
 
 /**
- * Find all refresh tokens for a user (optional utility)
- * @param {string} userId
- * @returns {Promise<import("/server/src/models/auth/refreshTokenModel.js").default[]>}
+ * Get all refresh tokens for a user.
+ *
+ * @async
+ * @function getTokensForUser
+ * @param {string} userId - ID of the user
+ * @returns {Promise<Object[]>} List of refresh token documents
  */
 export const getTokensForUser = async (userId) => {
-  return RefreshToken.find({ userId });
+  return RefreshTokenRepo.findAll({ user: userId });
 };

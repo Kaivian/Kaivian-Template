@@ -1,18 +1,13 @@
+// server/src/app.js
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
 import { log } from "./utils/logger.js";
-import authRoutes from "./routes/auth/auth.js";
-import healthRoute from "./routes/health.js";
-import { authenticate } from "./middleware/auth.js";
+import routes from "./routes/routeManager.js";
 
 export class AppServer {
-  /**
-   * Create an AppServer instance
-   * @param {Object} options
-   * @param {number} [options.port] - Server port
-   */
   constructor(options = {}) {
     this.port = options.port || env.PORT || 5000;
     this.app = express();
@@ -26,21 +21,12 @@ export class AppServer {
   _registerMiddleware() {
     this.app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
     this.app.use(express.json());
+    this.app.use(cookieParser());
     this.app.use(morgan("dev"));
   }
 
   _registerRoutes() {
-    this.app.get("/", (_req, res) => {
-      res.json({ message: `${env.APP_NAME} API is running` });
-    });
-
-    this.app.use("/auth", authRoutes);
-    this.app.use("/health", healthRoute);
-
-    const api = express.Router();
-    api.use(authenticate);
-
-    this.app.use("/api", api);
+    this.app.use("/", routes);
   }
 
   _registerNotFound() {
@@ -49,10 +35,6 @@ export class AppServer {
     });
   }
 
-  /**
-   * Start the server
-   * @returns {import("http").Server}
-   */
   start() {
     if (this.server) return this.server;
     this.server = this.app.listen(this.port, () => {
@@ -61,9 +43,6 @@ export class AppServer {
     return this.server;
   }
 
-  /**
-   * Shutdown the server
-   */
   async shutdown() {
     if (!this.server) return;
     await new Promise((resolve) => this.server.close(resolve));

@@ -1,5 +1,5 @@
 // server/src/services/userAccountService.js
-import UserAccountModel from "/server/src/models/userAccountModel.js";
+import UserAccountModel from "../models/userAccountModel.js";
 import bcrypt from "bcrypt";
 
 /** @typedef {import("/server/src/models/userAccountModel.js").default} UserAccountDoc */
