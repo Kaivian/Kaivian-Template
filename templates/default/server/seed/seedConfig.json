@@ -1,0 +1,25 @@
+{
+  "roles": [
+    {
+      "key": "admin",
+      "name": "Administrator",
+      "description": "Full access to all models and actions",
+      "permissions": {
+        "user-account": ["view", "edit", "create", "delete"],
+        "role": ["view", "edit", "create", "delete"]
+      },
+      "createdBy": "system"
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "password": "adminadmin",
+      "fullName": "Administrator",
+      "email": "admin@example.com",
+      "phone": "",
+      "isActive": true,
+      "roleKeys": ["admin"]
+    }
+  ]
+}

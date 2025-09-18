@@ -1,37 +1,44 @@
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
-import healthRoute from "./routes/health.js";
 import { env } from "./config/env.js";
 import { log } from "./utils/logger.js";
+import authRoutes from "./routes/auth/auth.js";
+import healthRoute from "./routes/health.js";
+import { authenticate } from "./middleware/auth.js";
 
-// OOP-style server wrapper to keep things organized and testable
 export class AppServer {
+  /**
+   * Create an AppServer instance
+   * @param {Object} options
+   * @param {number} [options.port] - Server port
+   */
   constructor(options = {}) {
     this.port = options.port || env.PORT || 5000;
     this.app = express();
     this.server = null;
 
-    this._registerMiddleware(options);
-    this._registerRoutes(options);
+    this._registerMiddleware();
+    this._registerRoutes();
     this._registerNotFound();
   }
 
-  _registerMiddleware(_options) {
+  _registerMiddleware() {
     this.app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
     this.app.use(express.json());
     this.app.use(morgan("dev"));
   }
 
-  _registerRoutes(_options) {
-    // basic root routes
+  _registerRoutes() {
     this.app.get("/", (_req, res) => {
       res.json({ message: `${env.APP_NAME} API is running` });
     });
 
-    // mount feature routes under /api
+    this.app.use("/auth", authRoutes);
+    this.app.use("/health", healthRoute);
+
     const api = express.Router();
-    api.use(healthRoute); // exposes GET /health
+    api.use(authenticate);
 
     this.app.use("/api", api);
   }
@@ -42,6 +49,10 @@ export class AppServer {
     });
   }
 
+  /**
+   * Start the server
+   * @returns {import("http").Server}
+   */
   start() {
     if (this.server) return this.server;
     this.server = this.app.listen(this.port, () => {
@@ -50,6 +61,9 @@ export class AppServer {
     return this.server;
   }
 
+  /**
+   * Shutdown the server
+   */
   async shutdown() {
     if (!this.server) return;
     await new Promise((resolve) => this.server.close(resolve));
@@ -57,7 +71,6 @@ export class AppServer {
   }
 }
 
-// Export a ready-to-use app (useful for testing)
 const instance = new AppServer();
 export const app = instance.app;
 export default instance;
