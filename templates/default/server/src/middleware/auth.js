@@ -1,6 +1,6 @@
 // server/src/middleware/auth.js
 import { verifyAccessToken } from "../utils/auth/jwt.js";
-import { AppError } from "../utils/errors/appError.js";
+import AppError from "../utils/errors/appError.js";
 
 /**
  * Express middleware to authenticate requests using JWT access tokens.

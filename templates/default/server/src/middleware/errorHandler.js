@@ -1,6 +1,6 @@
 // server/src/middleware/errorHandler.js
 import AppError from "../utils/errors/appError.js";
-import { err as logError } from "../utils/logger.js";
+import { lerror as logError } from "../utils/logger.js";
 
 /**
  * Global error-handling middleware for Express applications.

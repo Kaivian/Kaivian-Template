@@ -3,10 +3,10 @@ import express from "express";
 import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
-import { env } from "./config/env.js";
-import { info, warn, error } from "./utils/logger.js";
+import AppError from "./utils/errors/appError.js";
 import routes from "./routes/routeManager.js";
-import { AppError } from "./utils/errors/appError.js";
+import { env } from "./config/env.js";
+import { linfo, lwarn, lerror } from "./utils/logger.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 
 export class AppServer {
@@ -42,7 +42,7 @@ export class AppServer {
   _registerErrorHandler() {
     this.app.use((err, req, res, next) => {
       if (err instanceof AppError) {
-        warn(`[${req.method}] ${req.originalUrl} → ${err.statusCode} ${err.message}`);
+        lwarn(`[${req.method}] ${req.originalUrl} → ${err.statusCode} ${err.message}`);
         res.status(err.statusCode).json({
           success: false,
           error: {
@@ -51,7 +51,7 @@ export class AppServer {
           },
         });
       } else {
-        error("❌ [server] Unexpected error:", err);
+        lerror("❌ [server] Unexpected error:", err);
         res.status(500).json({
           success: false,
           error: { message: "Internal Server Error" },
@@ -63,7 +63,7 @@ export class AppServer {
   start() {
     if (this.server) return this.server;
     this.server = this.app.listen(this.port, () => {
-      info(`✅ Server listening on http://localhost:${this.port}`);
+      linfo(`✅ Server listening on http://localhost:${this.port}`);
     });
     return this.server;
   }
@@ -72,7 +72,7 @@ export class AppServer {
     if (!this.server) return;
     await new Promise((resolve) => this.server.close(resolve));
     this.server = null;
-    info("🛑 Server shut down gracefully");
+    linfo("🛑 Server shut down gracefully");
   }
 }
 

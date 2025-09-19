@@ -2,7 +2,7 @@
 import { env } from "./env.js";
 import mongoose from "mongoose";
 import AppError from "../utils/errors/appError.js";
-import { info, err as logError } from "../utils/logger.js";
+import { linfo, lerror } from "../utils/logger.js";
 
 const { MONGO_URI, MONGO_DB_NAME, MONGO_MAX_POOL, MONGO_SSTM } = env;
 
@@ -39,10 +39,10 @@ export async function connectOnce() {
     });
 
     connected = true;
-    info(`✅ [mongo] Connected to database: ${MONGO_DB_NAME}`);
+    linfo(`✅ [mongo] Connected to database: ${MONGO_DB_NAME}`);
     return mongoose.connection;
   } catch (error) {
-    logError("❌ [mongo] Connection error:", error);
+    lerror("❌ [mongo] Connection error:", error);
     throw new AppError(`MongoDB connection failed: ${error.message}`, 500);
   }
 }
@@ -61,9 +61,9 @@ export async function disconnect() {
   try {
     await mongoose.disconnect();
     connected = false;
-    info("✅ [mongo] Disconnected from database");
+    linfo("✅ [mongo] Disconnected from database");
   } catch (error) {
-    logError("❌ [mongo] Disconnect error:", error);
+    lerror("❌ [mongo] Disconnect error:", error);
     throw new AppError(`MongoDB disconnect failed: ${error.message}`, 500);
   }
 }
