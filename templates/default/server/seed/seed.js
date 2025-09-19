@@ -7,7 +7,7 @@ import { env } from "../src/config/env.js";
 import UserAccount from "../src/models/userAccountModel.js";
 import Role from "../src/models/roleModel.js";
 
-const configPath = path.resolve("./server/seed/seedConfig.json");
+const configPath = path.resolve("./seed/seedConfig.json");
 const rawConfig = fs.readFileSync(configPath, "utf-8");
 const { roles: rolesConfig, users: usersConfig } = JSON.parse(rawConfig);
 
