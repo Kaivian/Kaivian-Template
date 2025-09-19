@@ -9,10 +9,23 @@ import { env } from "./config/env.js";
 import { linfo, lwarn, lerror } from "./utils/logger.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 
+/**
+ * Encapsulates the Express server configuration, middleware,
+ * routes, and lifecycle management (start/shutdown).
+ */
 export class AppServer {
+  /**
+   * @param {Object} [options={}] - Optional server configuration.
+   * @param {number} [options.port] - Port to run the server on.
+   */
   constructor(options = {}) {
+    /** @type {number} */
     this.port = options.port || env.PORT || 5000;
+
+    /** @type {import("express").Express} */
     this.app = express();
+
+    /** @type {import("http").Server | null} */
     this.server = null;
 
     this._registerMiddleware();
@@ -21,6 +34,10 @@ export class AppServer {
     this._registerErrorHandler();
   }
 
+  /**
+   * Register global middleware (CORS, JSON parsing, cookies, logging, rate limiting).
+   * @private
+   */
   _registerMiddleware() {
     this.app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
     this.app.use(express.json());
@@ -29,16 +46,29 @@ export class AppServer {
     this.app.use("/api", apiLimiter);
   }
 
+  /**
+   * Register application routes.
+   * @private
+   */
   _registerRoutes() {
     this.app.use("/", routes);
   }
 
+  /**
+   * Handle unmatched routes with a 404 error.
+   * @private
+   */
   _registerNotFound() {
     this.app.use((req, res, next) => {
-      next(new AppError(404, "Not Found", { path: req.path }));
+      next(new AppError("Not Found", 404, { path: req.path }));
     });
   }
 
+  /**
+   * Register global error handler.
+   * Differentiates between AppError (operational errors) and unexpected errors.
+   * @private
+   */
   _registerErrorHandler() {
     this.app.use((err, req, res, next) => {
       if (err instanceof AppError) {
@@ -60,6 +90,10 @@ export class AppServer {
     });
   }
 
+  /**
+   * Start the server.
+   * @returns {import("http").Server} The running server instance.
+   */
   start() {
     if (this.server) return this.server;
     this.server = this.app.listen(this.port, () => {
@@ -68,6 +102,10 @@ export class AppServer {
     return this.server;
   }
 
+  /**
+   * Gracefully shut down the server.
+   * @returns {Promise<void>}
+   */
   async shutdown() {
     if (!this.server) return;
     await new Promise((resolve) => this.server.close(resolve));
@@ -76,6 +114,7 @@ export class AppServer {
   }
 }
 
+// Create singleton instance
 const instance = new AppServer();
 export const app = instance.app;
 export default instance;

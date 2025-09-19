@@ -3,49 +3,46 @@ import { verifyAccessToken } from "../utils/auth/jwt.js";
 import AppError from "../utils/errors/appError.js";
 
 /**
- * Express middleware to authenticate requests using JWT access tokens.
+ * Express middleware to authenticate incoming requests using JWT access tokens.
  *
- * - Retrieves the access token from either:
- *   - `req.cookies.accessToken`, or
+ * - Extracts the token from either:
+ *   - Cookie `accessToken`, or
  *   - `Authorization: Bearer <token>` header.
- * - Verifies the token using {@link verifyAccessToken}.
- * - Attaches the decoded payload to `req.user` if valid.
- * - Throws {@link AppError} with:
- *   - **401 Unauthorized** if no token is provided.
- *   - **403 Forbidden** if the token is invalid or expired.
+ * - If no token is found → responds with **401 Unauthorized**.
+ * - If the token is invalid or expired → responds with **403 Forbidden**.
+ * - If valid, attaches the decoded payload to `req.user` and continues.
+ *
+ * ### Example
+ * ```js
+ * import { authenticate } from "./middleware/auth.js";
+ *
+ * router.get("/profile", authenticate, (req, res) => {
+ *   res.json({ user: req.user });
+ * });
+ * ```
  *
  * @async
  * @function authenticate
  * @param {import("express").Request} req - Express request object.
  * @param {import("express").Response} res - Express response object.
  * @param {import("express").NextFunction} next - Express next middleware function.
- * @returns {Promise<void>} Resolves with `next()` if authenticated, otherwise forwards an {@link AppError}.
- *
- * @example
- * // Protect a route with authentication
- * import { authenticate } from "./middleware/auth.js";
- *
- * router.get("/profile", authenticate, (req, res) => {
- *   res.json({ user: req.user });
- * });
+ * @returns {Promise<void>} Calls `next()` if authentication succeeds,
+ * or forwards an {@link AppError} to the error handler if it fails.
  */
 export const authenticate = async (req, res, next) => {
+  const token =
+    req.cookies?.accessToken ||
+    req.headers["authorization"]?.split(" ")[1];
+
+  if (!token) {
+    return next(new AppError("Access token required", 401));
+  }
+
   try {
-    const token =
-      req.cookies?.accessToken ||
-      req.headers["authorization"]?.split(" ")[1];
-
-    if (!token) {
-      throw new AppError("Access token required", 401);
-    }
-
     req.user = await verifyAccessToken(token);
-    next();
+    return next();
   } catch (err) {
-    console.error("Authentication error:", err.message);
-    if (err instanceof AppError) {
-      return next(err);
-    }
+    console.warn("JWT verification failed:", err.message);
     return next(new AppError("Invalid or expired token", 403));
   }
 };
