@@ -1,45 +1,51 @@
 // server/src/middleware/auth.js
 import { verifyAccessToken } from "../utils/auth/jwt.js";
+import { AppError } from "../utils/errors/appError.js";
 
 /**
  * Express middleware to authenticate requests using JWT access tokens.
  *
- * - Looks for the token in `req.cookies.accessToken` or the `Authorization` header.
+ * - Retrieves the access token from either:
+ *   - `req.cookies.accessToken`, or
+ *   - `Authorization: Bearer <token>` header.
  * - Verifies the token using {@link verifyAccessToken}.
  * - Attaches the decoded payload to `req.user` if valid.
- * - Returns `401 Unauthorized` if no token is provided.
- * - Returns `403 Forbidden` if the token is invalid or expired.
+ * - Throws {@link AppError} with:
+ *   - **401 Unauthorized** if no token is provided.
+ *   - **403 Forbidden** if the token is invalid or expired.
  *
  * @async
  * @function authenticate
  * @param {import("express").Request} req - Express request object.
  * @param {import("express").Response} res - Express response object.
  * @param {import("express").NextFunction} next - Express next middleware function.
- * @returns {Promise<void>} Sends a JSON error response or calls `next()` if valid.
+ * @returns {Promise<void>} Resolves with `next()` if authenticated, otherwise forwards an {@link AppError}.
  *
  * @example
- * // Protect a route
+ * // Protect a route with authentication
  * import { authenticate } from "./middleware/auth.js";
+ *
  * router.get("/profile", authenticate, (req, res) => {
  *   res.json({ user: req.user });
  * });
  */
 export const authenticate = async (req, res, next) => {
   try {
-    // Check cookie or Authorization header
     const token =
       req.cookies?.accessToken ||
       req.headers["authorization"]?.split(" ")[1];
 
     if (!token) {
-      return res.status(401).json({ message: "Access token required" });
+      throw new AppError("Access token required", 401);
     }
 
-    // Verify and attach user payload
     req.user = await verifyAccessToken(token);
     next();
   } catch (err) {
     console.error("Authentication error:", err.message);
-    return res.status(403).json({ message: "Invalid or expired token" });
+    if (err instanceof AppError) {
+      return next(err);
+    }
+    return next(new AppError("Invalid or expired token", 403));
   }
 };

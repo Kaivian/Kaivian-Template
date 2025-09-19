@@ -8,48 +8,60 @@ import {
 import { parseDuration } from "../../utils/parseDuration.js";
 import * as UserAccountService from "../../services/userAccountService.js";
 import * as RefreshTokenService from "../../services/auth/refreshTokenService.js";
+import AppError from "../../utils/errors/appError.js";
+
+const ACCESS_COOKIE_OPTIONS_PATH = "/";
+const REFRESH_COOKIE_OPTIONS_PATH = "/auth/refresh";
+const { NODE_ENV, JWT_EXPIRES_IN, JWT_REFRESH_EXPIRES_IN } = env;
 
 const ACCESS_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: env.NODE_ENV === "production",
+  secure: NODE_ENV === "production",
   sameSite: "strict",
-  path: "/",
-  maxAge: parseDuration(env.JWT_EXPIRES_IN),
+  path: ACCESS_COOKIE_OPTIONS_PATH,
+  maxAge: parseDuration(JWT_EXPIRES_IN),
 };
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: env.NODE_ENV === "production",
+  secure: NODE_ENV === "production",
   sameSite: "strict",
-  path: "/auth/refresh",
-  maxAge: parseDuration(env.JWT_REFRESH_EXPIRES_IN),
+  path: REFRESH_COOKIE_OPTIONS_PATH,
+  maxAge: parseDuration(JWT_REFRESH_EXPIRES_IN),
 };
 
 /**
  * Authenticate user and issue JWT tokens (access + refresh).
  *
+ * Workflow:
  * - Validates username & password via {@link UserAccountService.validateUser}.
- * - Revokes old refresh tokens and issues a new one.
- * - Sets both `accessToken` and `refreshToken` cookies.
+ * - Revokes old refresh tokens for the user.
+ * - Creates a new refresh token in DB and sets it as an HTTP-only cookie.
+ * - Issues a new access token and sets it as an HTTP-only cookie.
+ *
+ * Errors:
+ * - 401 Unauthorized → Invalid credentials
+ * - 500 Internal Server Error → Other unexpected issues
  *
  * @async
  * @function login
- * @param {import("express").Request} req - Express request object with `username` and `password` in body.
+ * @param {import("express").Request} req - Express request object (expects `username`, `password` in body).
  * @param {import("express").Response} res - Express response object.
- * @returns {Promise<void>} Responds with `{ message: string }` and sets cookies, or error JSON.
+ * @param {import("express").NextFunction} next - Express next middleware function.
+ * @returns {Promise<void>} Responds with JSON `{ message: string }` and sets cookies.
  */
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
 
     const user = await UserAccountService.validateUser(username, password);
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      throw new AppError("Invalid credentials", 401);
     }
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
-    
+
     await RefreshTokenService.createToken({
       userId: user._id,
       token: refreshToken,
@@ -62,29 +74,34 @@ export const login = async (req, res) => {
 
     return res.json({ message: "Login successful" });
   } catch (err) {
-    console.error("Login error:", err);
-    return res.status(500).json({ message: "Internal server error" });
+    next(err);
   }
 };
 
 /**
  * Refresh an expired access token using a valid refresh token.
  *
+ * Workflow:
  * - Reads `refreshToken` from cookies.
- * - Verifies token validity and checks DB state.
- * - Issues a new access token if valid.
+ * - Verifies the refresh token signature and checks DB validity.
+ * - If valid, issues a new access token and sets it as an HTTP-only cookie.
+ *
+ * Errors:
+ * - 401 Unauthorized → Missing/invalid/expired refresh token
+ * - 401 Unauthorized → User not found
  *
  * @async
  * @function refreshToken
- * @param {import("express").Request} req - Express request with `refreshToken` cookie.
- * @param {import("express").Response} res - Express response.
- * @returns {Promise<void>} Responds with `{ message: string }` and sets new access cookie, or error JSON.
+ * @param {import("express").Request} req - Express request (expects `refreshToken` cookie).
+ * @param {import("express").Response} res - Express response object.
+ * @param {import("express").NextFunction} next - Express next middleware function.
+ * @returns {Promise<void>} Responds with JSON `{ message: string }` and sets new access cookie.
  */
-export const refreshToken = async (req, res) => {
+export const refreshToken = async (req, res, next) => {
   try {
     const token = req.cookies?.refreshToken;
     if (!token) {
-      return res.status(401).json({ message: "No refresh token provided" });
+      throw new AppError("No refresh token provided", 401);
     }
 
     const payload = verifyRefreshToken(token);
@@ -94,14 +111,12 @@ export const refreshToken = async (req, res) => {
     );
 
     if (!storedToken) {
-      return res
-        .status(401)
-        .json({ message: "Invalid or revoked refresh token" });
+      throw new AppError("Invalid or revoked refresh token", 401);
     }
 
     const user = await UserAccountService.findById(payload.userId);
     if (!user) {
-      return res.status(401).json({ message: "User not found" });
+      throw new AppError("User not found", 401);
     }
 
     const newAccessToken = generateAccessToken(user);
@@ -109,36 +124,39 @@ export const refreshToken = async (req, res) => {
 
     return res.json({ message: "Access token refreshed" });
   } catch (err) {
-    console.error("Refresh token error:", err);
-    return res.status(401).json({ message: "Invalid refresh token" });
+    next(err);
   }
 };
 
 /**
  * Logout user by revoking refresh token and clearing cookies.
  *
- * - Revokes the stored refresh token in DB.
- * - Clears `accessToken` and `refreshToken` cookies.
+ * Workflow:
+ * - Revokes the stored refresh token in DB (if present).
+ * - Clears both `accessToken` and `refreshToken` cookies.
+ *
+ * Errors:
+ * - 500 Internal Server Error → Unexpected failures during logout
  *
  * @async
  * @function logout
- * @param {import("express").Request} req - Express request with optional `refreshToken` cookie.
- * @param {import("express").Response} res - Express response.
- * @returns {Promise<void>} Responds with `{ message: string }`.
+ * @param {import("express").Request} req - Express request (may contain `refreshToken` cookie).
+ * @param {import("express").Response} res - Express response object.
+ * @param {import("express").NextFunction} next - Express next middleware function.
+ * @returns {Promise<void>} Responds with JSON `{ message: string }`.
  */
-export const logout = async (req, res) => {
+export const logout = async (req, res, next) => {
   try {
     const token = req.cookies?.refreshToken;
     if (token) {
       await RefreshTokenService.revokeToken(token, req.ip);
     }
 
-    res.clearCookie("accessToken", { path: "/" });
-    res.clearCookie("refreshToken", { path: "/auth/refresh" });
+    res.clearCookie("accessToken", { path: ACCESS_COOKIE_OPTIONS_PATH });
+    res.clearCookie("refreshToken", { path: REFRESH_COOKIE_OPTIONS_PATH });
 
     return res.json({ message: "Logged out" });
   } catch (err) {
-    console.error("Logout error:", err);
-    return res.status(500).json({ message: "Internal server error" });
+    next(err);
   }
 };

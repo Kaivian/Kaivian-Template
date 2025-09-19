@@ -1,14 +1,16 @@
 // server/src/config/mongo.js
 import { env } from "./env.js";
 import mongoose from "mongoose";
+import AppError from "../utils/errors/appError.js";
+import { info, err as logError } from "../utils/logger.js";
 
 const { MONGO_URI, MONGO_DB_NAME, MONGO_MAX_POOL, MONGO_SSTM } = env;
 
 if (!MONGO_URI) {
-  throw new Error("❌ [mongo] Missing required env: MONGO_URI");
+  throw new AppError("❌ [mongo] Missing required env: MONGO_URI", 500);
 }
 if (!MONGO_DB_NAME) {
-  throw new Error("❌ [mongo] Missing required env: MONGO_DB_NAME");
+  throw new AppError("❌ [mongo] Missing required env: MONGO_DB_NAME", 500);
 }
 
 let connected = false;
@@ -20,7 +22,7 @@ let connected = false;
  * @async
  * @function connectOnce
  * @returns {Promise<mongoose.Connection>} Mongoose connection instance
- * @throws {Error} If the connection fails
+ * @throws {AppError} If the connection fails
  */
 export async function connectOnce() {
   if (connected) return mongoose.connection;
@@ -37,11 +39,11 @@ export async function connectOnce() {
     });
 
     connected = true;
-    console.info(`✅ [mongo] Connected to database: ${MONGO_DB_NAME}`);
+    info(`✅ [mongo] Connected to database: ${MONGO_DB_NAME}`);
     return mongoose.connection;
-  } catch (err) {
-    console.error("❌ [mongo] Connection error:", err);
-    throw new Error(`MongoDB connection failed: ${err.message}`);
+  } catch (error) {
+    logError("❌ [mongo] Connection error:", error);
+    throw new AppError(`MongoDB connection failed: ${error.message}`, 500);
   }
 }
 
@@ -51,6 +53,7 @@ export async function connectOnce() {
  * @async
  * @function disconnect
  * @returns {Promise<void>}
+ * @throws {AppError} If disconnect fails
  */
 export async function disconnect() {
   if (!connected) return;
@@ -58,10 +61,10 @@ export async function disconnect() {
   try {
     await mongoose.disconnect();
     connected = false;
-    console.info("✅ [mongo] Disconnected from database");
-  } catch (err) {
-    console.error("❌ [mongo] Disconnect error:", err);
-    throw new Error(`MongoDB disconnect failed: ${err.message}`);
+    info("✅ [mongo] Disconnected from database");
+  } catch (error) {
+    logError("❌ [mongo] Disconnect error:", error);
+    throw new AppError(`MongoDB disconnect failed: ${error.message}`, 500);
   }
 }
 

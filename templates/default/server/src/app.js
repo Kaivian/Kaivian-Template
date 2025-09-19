@@ -4,8 +4,10 @@ import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
-import { log } from "./utils/logger.js";
+import { info, warn, error } from "./utils/logger.js";
 import routes from "./routes/routeManager.js";
+import { AppError } from "./utils/errors/appError.js";
+import { apiLimiter } from "./middleware/rateLimiter.js";
 
 export class AppServer {
   constructor(options = {}) {
@@ -16,6 +18,7 @@ export class AppServer {
     this._registerMiddleware();
     this._registerRoutes();
     this._registerNotFound();
+    this._registerErrorHandler();
   }
 
   _registerMiddleware() {
@@ -23,6 +26,7 @@ export class AppServer {
     this.app.use(express.json());
     this.app.use(cookieParser());
     this.app.use(morgan("dev"));
+    this.app.use("/api", apiLimiter);
   }
 
   _registerRoutes() {
@@ -30,15 +34,36 @@ export class AppServer {
   }
 
   _registerNotFound() {
-    this.app.use((req, res) => {
-      res.status(404).json({ error: "Not Found", path: req.path });
+    this.app.use((req, res, next) => {
+      next(new AppError(404, "Not Found", { path: req.path }));
+    });
+  }
+
+  _registerErrorHandler() {
+    this.app.use((err, req, res, next) => {
+      if (err instanceof AppError) {
+        warn(`[${req.method}] ${req.originalUrl} → ${err.statusCode} ${err.message}`);
+        res.status(err.statusCode).json({
+          success: false,
+          error: {
+            message: err.message,
+            details: err.details || null,
+          },
+        });
+      } else {
+        error("❌ [server] Unexpected error:", err);
+        res.status(500).json({
+          success: false,
+          error: { message: "Internal Server Error" },
+        });
+      }
     });
   }
 
   start() {
     if (this.server) return this.server;
     this.server = this.app.listen(this.port, () => {
-      log(`Server listening on http://localhost:${this.port}`);
+      info(`✅ Server listening on http://localhost:${this.port}`);
     });
     return this.server;
   }
@@ -47,6 +72,7 @@ export class AppServer {
     if (!this.server) return;
     await new Promise((resolve) => this.server.close(resolve));
     this.server = null;
+    info("🛑 Server shut down gracefully");
   }
 }
 

@@ -2,6 +2,8 @@
 import { Router } from "express";
 import authRoutes from "./auth/auth.js";
 import { authenticate } from "../middleware/auth.js";
+import { errorHandler } from "../middleware/errorHandler.js";
+import { authLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -11,7 +13,7 @@ const router = Router();
  * @group Auth
  * @description All authentication-related routes (login, register, refresh, logout, etc.)
  */
-router.use("/auth", authRoutes);
+router.use("/auth", authLimiter, authRoutes);
 
 /**
  * Root route
@@ -76,5 +78,7 @@ if (process.env.NODE_ENV !== "production") {
         });
     });
 }
+
+router.use(errorHandler);
 
 export default router;

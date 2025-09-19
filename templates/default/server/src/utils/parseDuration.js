@@ -1,3 +1,4 @@
+// server/src/utils/parseDuration.js
 /**
  * Convert a duration string (e.g., "15m", "7d") into milliseconds.
  * @param {string} str - Duration string.
