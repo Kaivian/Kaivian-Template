@@ -7,37 +7,30 @@ import { env } from "../src/config/env.js";
 import UserAccount from "../src/models/userAccountModel.js";
 import Role from "../src/models/roleModel.js";
 
-// đọc file JSON
 const configPath = path.resolve("./server/seed/seedConfig.json");
 const rawConfig = fs.readFileSync(configPath, "utf-8");
 const { roles: rolesConfig, users: usersConfig } = JSON.parse(rawConfig);
 
-const MONGO_URI = env.MONGO_URI;
-const DB_NAME = env.DB_NAME;
-
 async function seed() {
   try {
     console.log("⏳ Connecting to MongoDB...");
-    await mongoose.connect(MONGO_URI, {
-      dbName: DB_NAME,
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(env.MONGO_URI, { dbName: env.MONGO_DB_NAME });
+    console.log("✅ Connected to MongoDB");
 
-    // 1️⃣ Seed roles first
+    // 1️⃣ Seed roles
     const roleMap = {};
     for (const r of rolesConfig) {
       let role = await Role.findOne({ key: r.key });
       if (!role) {
         role = await Role.create({ ...r, createdBy: null, updatedBy: null });
-        console.log(`✅ Created role: ${r.key}`);
+        console.log(`🆕 Created role: ${r.key}`);
       } else {
-        console.log(`⚠️ Role already exists: ${r.key}`);
+        console.log(`ℹ️ Role exists: ${r.key}`);
       }
       roleMap[r.key] = role._id;
     }
 
-    // 2️⃣ Seed users with role ObjectId
+    // 2️⃣ Seed users
     for (const u of usersConfig) {
       let user = await UserAccount.findOne({ username: u.username });
       const hashedPassword = await bcrypt.hash(u.password, 10);
@@ -55,7 +48,7 @@ async function seed() {
           createdBy: null,
           updatedBy: null,
         });
-        console.log(`✅ Created user: ${u.username}`);
+        console.log(`🆕 Created user: ${u.username}`);
       } else {
         user.roles = userRoles;
         user.passwordHash = hashedPassword;
@@ -66,15 +59,13 @@ async function seed() {
       }
     }
 
-    await mongoose.disconnect();
     console.log("🎉 Seeding completed!");
-    process.exit(0);
   } catch (err) {
     console.error("❌ Seed error:", err);
-    try {
-      await mongoose.disconnect();
-    } catch {}
     process.exit(1);
+  } finally {
+    await mongoose.disconnect();
+    console.log("🔌 Disconnected from MongoDB");
   }
 }
 
