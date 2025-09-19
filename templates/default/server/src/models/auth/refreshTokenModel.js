@@ -1,4 +1,4 @@
-// server/src/model/refreshTokenModel.js
+// server/src/models/refreshTokenModel.js
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
@@ -6,38 +6,59 @@ const { Schema } = mongoose;
 /**
  * RefreshToken Schema
  *
- * This schema defines a refresh token issued to a user for renewing JWT access tokens.
- * It tracks token validity, expiration, revocation, and metadata about creation/updating.
+ * Stores refresh tokens per login session.
+ * Enables session management, security auditing, and device tracking.
  *
  * @typedef {Object} RefreshToken
- * @property {mongoose.ObjectId} user - Reference to the user who owns this token.
- * @property {string} token - The refresh token string.
- * @property {Date} expiresAt - Expiration date/time of the token.
- * @property {string} createdByIp - IP address from which the token was created.
- * @property {Date|null} [revokedAt] - Timestamp when the token was revoked, if any.
- * @property {string|null} [revokedByIp] - IP address from which the token was revoked.
- * @property {string|null} [replacedByToken] - Token that replaced this one (for rotation).
- * @property {Date} createdAt - Timestamp when the token was created (auto-generated).
- * @property {Date} updatedAt - Timestamp when the token was last updated (auto-generated).
+ * @property {mongoose.ObjectId} user_id - Reference to the UserAccount (session owner).
+ * @property {string} session_id - Unique identifier for the session (UUID or ObjectId).
+ * @property {string} refresh_token_hash - SHA-256 hash of the refresh token (never store raw tokens).
+ * @property {Object} device - Information about the client device.
+ * @property {string} device.ip - IP address of the device.
+ * @property {string|null} device.userAgent - Browser or application user-agent string.
+ * @property {string|null} device.os - Operating system of the device.
+ * @property {string} status - Session status (active | revoked | expired).
+ * @property {Date} createdAt - Session creation timestamp.
+ * @property {Date} expiresAt - Session expiration timestamp.
+ * @property {Date|null} revokedAt - Timestamp when the session was revoked (if any).
+ * @property {string|null} revokedByIp - IP address from which the session was revoked.
+ * @property {Date|null} lastUsedAt - Last time the refresh token was used to obtain a new access token.
  */
 const RefreshTokenSchema = new Schema(
   {
-    user: {
+    user_id: {
       type: Schema.Types.ObjectId,
       ref: "UserAccount",
       required: true,
     },
-    token: {
+    session_id: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
+    refresh_token_hash: {
       type: String,
       required: true,
       unique: true,
     },
-    expiresAt: {
-      type: Date,
+    device: {
+      ip: { type: String, required: true },
+      userAgent: { type: String, default: null },
+      os: { type: String, default: null },
+    },
+    status: {
+      type: String,
+      enum: ["active", "revoked", "expired"],
+      default: "active",
       required: true,
     },
-    createdByIp: {
-      type: String,
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    expiresAt: {
+      type: Date,
       required: true,
     },
     revokedAt: {
@@ -48,15 +69,23 @@ const RefreshTokenSchema = new Schema(
       type: String,
       default: null,
     },
-    replacedByToken: {
-      type: String,
+    lastUsedAt: {
+      type: Date,
       default: null,
     },
   },
   {
-    timestamps: true,
     versionKey: false,
   }
+);
+
+/**
+ * Ensure a user can have at most 1 active refresh token at a time.
+ * This compound partial index applies only to documents with status 'active'.
+ */
+RefreshTokenSchema.index(
+  { user_id: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: "active" } }
 );
 
 export default mongoose.models.RefreshToken || mongoose.model("RefreshToken", RefreshTokenSchema);

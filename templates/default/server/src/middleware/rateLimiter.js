@@ -2,6 +2,7 @@
 import rateLimit from "express-rate-limit";
 import { parseDuration } from "../utils/parseDuration.js";
 import AppError from "../utils/errors/appError.js";
+import { env } from "../config/env.js";
 
 /**
  * Creates a standardized error response for rate limiting.
@@ -13,14 +14,21 @@ const rateLimitError = (message) =>
   new AppError(message, 429, { type: "RateLimitError" });
 
 /**
+ * Helper: return rate limiter only in production
+ */
+const withRateLimit =
+  (options) =>
+  env.NODE_ENV === "production"
+    ? rateLimit(options)
+    : (req, res, next) => next();
+
+/**
  * General API rate limiter.
  *
- * - Limits each IP to **100 requests per 15 minutes**.
- * - Suitable for most public API endpoints.
- *
- * @constant
+ * - Production: Limits each IP to **100 requests per 15 minutes**.
+ * - Dev/Test: Disabled.
  */
-export const apiLimiter = rateLimit({
+export const apiLimiter = withRateLimit({
   windowMs: parseDuration("15m"),
   max: 100,
   handler: (req, res, next) =>
@@ -32,12 +40,10 @@ export const apiLimiter = rateLimit({
 /**
  * Authentication-specific rate limiter.
  *
- * - Limits each IP to **5 requests per 5 minutes**.
- * - Helps mitigate brute-force attacks on login/register.
- *
- * @constant
+ * - Production: Limits each IP to **5 requests per 5 minutes**.
+ * - Dev/Test: Disabled.
  */
-export const authLimiter = rateLimit({
+export const authLimiter = withRateLimit({
   windowMs: parseDuration("5m"),
   max: 5,
   handler: (req, res, next) =>

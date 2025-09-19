@@ -5,77 +5,68 @@ import RefreshToken from "../../models/auth/refreshTokenModel.js";
  * Create a new refresh token document.
  *
  * @async
- * @function create
- * @param {Object} data - Token data
- * @param {string} data.user - User ID reference
- * @param {string} data.token - Refresh token string
- * @param {Date} data.expiresAt - Expiration date
- * @param {string|null} [data.createdByIp] - IP address of the creator
- * @returns {Promise<Object>} Created token document
+ * @param {Object} data - Refresh token data
+ * @returns {Promise<Object>} Newly created refresh token document
  */
-export const create = (data) => {
-  return RefreshToken.create(data);
-};
+export const create = (data) => RefreshToken.create(data);
 
 /**
- * Find one token by query.
+ * Find a single refresh token document.
  *
  * @async
- * @function findOne
- * @param {Object} query - Mongoose query object
- * @returns {Promise<Object|null>} Token document if found, otherwise null
+ * @param {Object} query - Mongoose query filter
+ * @returns {Promise<Object|null>} Token document if found, otherwise `null`
  */
-export const findOne = (query) => {
-  return RefreshToken.findOne(query);
-};
+export const findOne = (query) => RefreshToken.findOne(query);
 
 /**
- * Find one token and update it.
+ * Find a single refresh token document and update it.
  *
  * @async
- * @function findOneAndUpdate
  * @param {Object} query - Mongoose filter query
  * @param {Object} update - Update operations
- * @param {Object} [options={ new: true }] - Mongoose update options
- * @returns {Promise<Object|null>} Updated token document if found, otherwise null
+ * @param {Object} [options={ new: true }] - Update options (returns updated document by default)
+ * @returns {Promise<Object|null>} Updated token document if found, otherwise `null`
  */
-export const findOneAndUpdate = (query, update, options = { new: true }) => {
-  return RefreshToken.findOneAndUpdate(query, update, options);
-};
+export const findOneAndUpdate = (query, update, options = { new: true }) => RefreshToken.findOneAndUpdate(query, update, options);
 
 /**
- * Update many tokens by query.
+ * Update a single refresh token document.
  *
  * @async
- * @function updateMany
  * @param {Object} query - Mongoose filter query
  * @param {Object} update - Update operations
- * @returns {Promise<Object>} Mongoose update result (contains matchedCount & modifiedCount)
+ * @returns {Promise<{ acknowledged: boolean, matchedCount: number, modifiedCount: number }>}
+ * Mongoose update result
  */
-export const updateMany = (query, update) => {
-  return RefreshToken.updateMany(query, update);
-};
+export const updateOne = (query, update) => RefreshToken.updateOne(query, update);
 
 /**
- * Find all tokens by query.
+ * Update multiple refresh token documents.
  *
  * @async
- * @function findAll
+ * @param {Object} query - Mongoose filter query
+ * @param {Object} update - Update operations
+ * @returns {Promise<{ acknowledged: boolean, matchedCount: number, modifiedCount: number }>}
+ * Mongoose update result
+ */
+export const updateMany = (query, update) => RefreshToken.updateMany(query, update);
+
+/**
+ * Find all refresh token documents matching a query.
+ *
+ * @async
  * @param {Object} query - Mongoose filter query
  * @returns {Promise<Object[]>} Array of token documents
  */
-export const findAll = (query) => {
-  return RefreshToken.find(query);
-};
+export const findAll = (query) => RefreshToken.find(query);
 
 /**
- * Delete many tokens by query.
+ * Delete multiple refresh token documents.
  *
  * @async
- * @function deleteMany
  * @param {Object} query - Mongoose filter query
- * @returns {Promise<Object>} Mongoose delete result (contains deletedCount)
+ * @returns {Promise<{ acknowledged: boolean, deletedCount: number }>}
+ * Mongoose delete result
  */
-export const deleteMany = (query) => {
-  return RefreshToken.deleteMany(query);
-};
+export const deleteMany = (query) => RefreshToken.deleteMany(query);

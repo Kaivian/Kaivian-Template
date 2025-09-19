@@ -8,89 +8,146 @@ const {
   JWT_EXPIRES_IN,
   JWT_REFRESH_SECRET,
   JWT_REFRESH_EXPIRES_IN,
+  JWT_ISSUER,
+  JWT_AUDIENCE,
 } = env;
 
 /**
  * Generate a short-lived access token for authentication.
- * @param {Object} user - User object from a database.
- * @param {string} user._id - Unique ID of the user.
- * @param {Array<string>} [user.roles=[]] - List of user roles.
- * @returns {string} Signed JWT access token.
- * @throws {AppError} If the JWT secret is missing.
+ *
+ * @param {Object} params
+ * @param {string} params.userId - User ID
+ * @param {string} params.sessionId - Session ID tied to this login
+ * @param {string[]} [params.roles=[]] - User roles
+ * @param {Object} [params.permissions={}] - Fine-grained permissions
+ * @returns {string} Signed JWT access token
+ * @throws {AppError} If required params are missing
  */
-export const generateAccessToken = (user) => {
+export const generateAccessToken = ({
+  userId,
+  sessionId,
+  roles = [],
+  permissions = {},
+}) => {
+  if (!userId || !sessionId) {
+    throw new AppError("userId and sessionId are required to generate access token.", 500);
+  }
+
   const payload = {
-    userId: user._id,
-    roles: user.roles || [],
+    sub: String(userId),
+    session_id: String(sessionId),
+    roles,
+    permissions,
   };
-  return signToken(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+  return signToken(payload, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN,
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
+  });
 };
 
 /**
  * Generate a long-lived refresh token for renewing access tokens.
- * @param {Object} user - User object from a database.
- * @param {string} user._id - Unique ID of the user.
- * @returns {string} Signed JWT refresh token.
- * @throws {AppError} If the JWT refresh secret is missing.
+ *
+ * @param {Object} params
+ * @param {string} params.userId - User ID
+ * @param {string} params.sessionId - Session ID tied to this login
+ * @returns {string} Signed JWT refresh token
+ * @throws {AppError} If required params are missing
  */
-export const generateRefreshToken = (user) => {
-  const payload = { userId: user._id };
+export const generateRefreshToken = ({ userId, sessionId }) => {
+  if (!userId || !sessionId) {
+    throw new AppError("userId and sessionId are required to generate refresh token.", 500);
+  }
+
+  const payload = {
+    sub: String(userId),
+    session_id: String(sessionId),
+    type: "refresh",
+  };
+
   return signToken(payload, JWT_REFRESH_SECRET, {
     expiresIn: JWT_REFRESH_EXPIRES_IN,
+    issuer: JWT_ISSUER,
   });
 };
 
 /**
  * Verify and decode an access token.
- * @param {string} token - JWT access token.
- * @returns {Object} Decoded token payload if valid.
- * @throws {AppError} If token is invalid or expired.
+ *
+ * @param {string} token - JWT access token
+ * @returns {Object} Decoded token payload
+ * @throws {AppError} If token is invalid or expired
  */
 export const verifyAccessToken = (token) =>
   verifyToken(token, JWT_SECRET, "access");
 
 /**
  * Verify and decode a refresh token.
- * @param {string} token - JWT refresh token.
- * @returns {Object} Decoded token payload if valid.
- * @throws {AppError} If token is invalid or expired.
+ *
+ * @param {string} token - JWT refresh token
+ * @returns {Object} Decoded token payload
+ * @throws {AppError} If token is invalid or expired
  */
 export const verifyRefreshToken = (token) =>
   verifyToken(token, JWT_REFRESH_SECRET, "refresh");
 
 /**
- * Helper: Sign a JWT with given payload, secret, and options.
- * @param {Object} payload - Data to embed in the token.
- * @param {string} secret - JWT secret key.
- * @param {Object} options - JWT sign options (expiresIn, issuer, audience...).
- * @returns {string} Signed JWT.
- * @throws {AppError} If secret is missing.
+ * Helper: Sign a JWT.
+ *
+ * @private
+ * @param {Object} payload - Data to embed in the token
+ * @param {string} secret - JWT secret key
+ * @param {Object} options - jwt.sign options
+ * @returns {string} Signed JWT
+ * @throws {AppError} If secret or expiresIn is missing
  */
 const signToken = (payload, secret, options) => {
   if (!secret) {
-    throw new AppError("JWT secret is not defined in environment variables.", 500);
+    throw new AppError("Missing JWT secret in environment variables.", 500);
   }
-  return jwt.sign(payload, secret, options);
+  if (!options?.expiresIn) {
+    throw new AppError("Missing expiresIn option for JWT.", 500);
+  }
+
+  try {
+    return jwt.sign(payload, secret, options);
+  } catch (err) {
+    throw new AppError(`Failed to sign token: ${err.message}`, 500);
+  }
 };
 
 /**
  * Helper: Verify and decode a JWT.
- * @param {string} token - The JWT string to verify.
- * @param {string} secret - JWT secret key.
- * @param {"access"|"refresh"} type - Token type (for clearer error messages).
- * @returns {Object} Decoded payload if valid.
- * @throws {AppError} If token is invalid or expired.
+ *
+ * @private
+ * @param {string} token - The JWT string to verify
+ * @param {string} secret - JWT secret key
+ * @param {"access"|"refresh"} type - Token type
+ * @returns {Object} Decoded payload if valid
+ * @throws {AppError} If token is invalid or expired
  */
 const verifyToken = (token, secret, type) => {
   if (!secret) {
     throw new AppError(
-      `JWT ${type} secret is not defined in environment variables.`,
+      `Missing JWT ${type} secret in environment variables.`,
       500
     );
   }
+  if (!token) {
+    throw new AppError(`${type} token is required.`, 401);
+  }
+
   try {
-    return jwt.verify(token, secret);
+    return jwt.verify(token, secret, {
+      issuer: JWT_ISSUER,
+      audience: type === "access" ? JWT_AUDIENCE : undefined,
+    });
   } catch (err) {
-    throw new AppError(`Invalid or expired ${type} token.`, 403);
+    throw new AppError(
+      `Invalid or expired ${type} token: ${err.message}`,
+      403
+    );
   }
 };

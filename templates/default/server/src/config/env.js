@@ -27,6 +27,8 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
  * @property {string} JWT_EXPIRES_IN - Access token expiration (e.g., "15m")
  * @property {string} JWT_REFRESH_SECRET - Secret for signing refresh tokens
  * @property {string} JWT_REFRESH_EXPIRES_IN - Refresh token expiration (e.g., "7d")
+ * @property {string} JWT_ISSUER - JWT issuer claim
+ * @property {string} JWT_AUDIENCE - JWT audience claim
  *
  * @property {string} MONGO_URI - Base MongoDB connection URI
  * @property {string} MONGO_DB_NAME - Database name (default: "development")
@@ -47,6 +49,8 @@ export const env = {
   JWT_EXPIRES_IN: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || "PLEASE_INSERT_ME_TOO",
   JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+  JWT_ISSUER: process.env.JWT_ISSUER || "your-api.com",
+  JWT_AUDIENCE: process.env.JWT_AUDIENCE || "your-client-app",
 
   MONGO_URI: process.env.MONGO_URI || "",
   MONGO_DB_NAME: process.env.MONGO_DB_NAME || "development",

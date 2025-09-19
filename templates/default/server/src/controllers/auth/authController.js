@@ -1,73 +1,101 @@
-// server/src/controllers/auth/authController.js
+import { v4 as uuidv4 } from "uuid";
 import { env } from "../../config/env.js";
-import {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
-} from "../../utils/auth/jwt.js";
-import { parseDuration } from "../../utils/parseDuration.js";
 import * as UserAccountService from "../../services/userAccountService.js";
 import * as RefreshTokenService from "../../services/auth/refreshTokenService.js";
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../../utils/auth/jwt.js";
+import { parseDuration } from "../../utils/parseDuration.js";
 import AppError from "../../utils/errors/appError.js";
-
-const ACCESS_COOKIE_OPTIONS_PATH = "/";
-const REFRESH_COOKIE_OPTIONS_PATH = "/auth/refresh";
-const { NODE_ENV, JWT_EXPIRES_IN, JWT_REFRESH_EXPIRES_IN } = env;
+import crypto from "crypto";
 
 const ACCESS_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: NODE_ENV === "production",
+  secure: env.NODE_ENV === "production",
   sameSite: "strict",
-  path: ACCESS_COOKIE_OPTIONS_PATH,
-  maxAge: parseDuration(JWT_EXPIRES_IN),
+  path: "/",
+  maxAge: parseDuration(env.JWT_EXPIRES_IN),
 };
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: NODE_ENV === "production",
+  secure: env.NODE_ENV === "production",
   sameSite: "strict",
-  path: REFRESH_COOKIE_OPTIONS_PATH,
-  maxAge: parseDuration(JWT_REFRESH_EXPIRES_IN),
+  path: "/auth/refresh",
+  maxAge: parseDuration(env.JWT_REFRESH_EXPIRES_IN),
 };
 
 /**
- * Authenticate user and issue JWT tokens (access + refresh).
+ * Hash a token string using SHA-256.
  *
- * Workflow:
- * - Validates username & password via {@link UserAccountService.validateUser}.
- * - Revokes old refresh tokens for the user.
- * - Creates a new refresh token in DB and sets it as an HTTP-only cookie.
- * - Issues a new access token and sets it as an HTTP-only cookie.
+ * @param {string} token - Raw token
+ * @returns {string} SHA-256 hash
+ */
+const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+/**
+ * Authenticate a user and issue JWT access and refresh tokens.
  *
- * Errors:
- * - 401 Unauthorized → Invalid credentials
- * - 500 Internal Server Error → Other unexpected issues
+ * - Validates credentials.
+ * - Ensures only one active refresh token per user.
+ * - Sets HTTP-only cookies for tokens.
  *
  * @async
  * @function login
- * @param {import("express").Request} req - Express request object (expects `username`, `password` in body).
+ * @param {import("express").Request} req - Express request, expects `username` and `password` in body.
  * @param {import("express").Response} res - Express response object.
- * @param {import("express").NextFunction} next - Express next middleware function.
- * @returns {Promise<void>} Responds with JSON `{ message: string }` and sets cookies.
+ * @param {import("express").NextFunction} next - Next middleware function.
+ * @returns {Promise<void>} JSON response with success message.
+ * @throws {AppError} 401 if credentials are invalid.
  */
 export const login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
-
     const user = await UserAccountService.validateUser(username, password);
-    if (!user) {
-      throw new AppError("Invalid credentials", 401);
-    }
+    if (!user) throw new AppError("Invalid credentials", 401);
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    // Check for existing active refresh token
+    let tokenDoc = await RefreshTokenService.findActiveTokenByUser(user._id.toString());
+    const sessionId = tokenDoc ? tokenDoc.session_id : uuidv4();
 
-    await RefreshTokenService.createToken({
-      userId: user._id,
-      token: refreshToken,
-      expiresAt: new Date(Date.now() + REFRESH_COOKIE_OPTIONS.maxAge),
-      createdByIp: req.ip,
+    // Generate tokens
+    const accessToken = generateAccessToken({
+      userId: user._id.toString(),
+      sessionId,
+      roles: user.roles || [],
+      permissions: user.permissions || {},
     });
+
+    const refreshToken = generateRefreshToken({
+      userId: user._id.toString(),
+      sessionId,
+    });
+
+    const deviceInfo = {
+      ip: req.ip,
+      userAgent: req.headers["user-agent"] || "unknown",
+      os: req.headers["sec-ch-ua-platform"] || "unknown",
+    };
+
+    if (tokenDoc) {
+      // Update existing token
+      await RefreshTokenService.updateToken(tokenDoc._id, {
+        refresh_token_hash: hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + REFRESH_COOKIE_OPTIONS.maxAge),
+        device: deviceInfo,
+        status: "active",
+        revokedAt: null,
+        revokedByIp: null,
+        lastUsedAt: null,
+      });
+    } else {
+      // Create new token
+      await RefreshTokenService.createToken({
+        userId: user._id.toString(),
+        sessionId,
+        token: refreshToken,
+        expiresAt: new Date(Date.now() + REFRESH_COOKIE_OPTIONS.maxAge),
+        device: deviceInfo,
+      });
+    }
 
     res.cookie("accessToken", accessToken, ACCESS_COOKIE_OPTIONS);
     res.cookie("refreshToken", refreshToken, REFRESH_COOKIE_OPTIONS);
@@ -79,49 +107,43 @@ export const login = async (req, res, next) => {
 };
 
 /**
- * Refresh an expired access token using a valid refresh token.
+ * Refresh an access token using a valid refresh token.
  *
- * Workflow:
- * - Reads `refreshToken` from cookies.
- * - Verifies the refresh token signature and checks DB validity.
- * - If valid, issues a new access token and sets it as an HTTP-only cookie.
- *
- * Errors:
- * - 401 Unauthorized → Missing/invalid/expired refresh token
- * - 401 Unauthorized → User not found
+ * - Reads refresh token from cookies.
+ * - Verifies token signature and DB validity.
+ * - Issues new access token.
  *
  * @async
  * @function refreshToken
- * @param {import("express").Request} req - Express request (expects `refreshToken` cookie).
+ * @param {import("express").Request} req - Express request object with `refreshToken` cookie.
  * @param {import("express").Response} res - Express response object.
- * @param {import("express").NextFunction} next - Express next middleware function.
- * @returns {Promise<void>} Responds with JSON `{ message: string }` and sets new access cookie.
+ * @param {import("express").NextFunction} next - Next middleware function.
+ * @returns {Promise<void>} JSON response with success message.
+ * @throws {AppError} 401 if refresh token is missing, invalid, or revoked.
  */
 export const refreshToken = async (req, res, next) => {
   try {
     const token = req.cookies?.refreshToken;
-    if (!token) {
-      throw new AppError("No refresh token provided", 401);
-    }
+    if (!token) throw new AppError("No refresh token provided", 401);
 
     const payload = verifyRefreshToken(token);
-    const storedToken = await RefreshTokenService.findToken(
-      token,
-      payload.userId
-    );
+    const storedToken = await RefreshTokenService.findToken(token, payload.sub);
+    if (!storedToken) throw new AppError("Invalid or revoked refresh token", 401);
 
-    if (!storedToken) {
-      throw new AppError("Invalid or revoked refresh token", 401);
-    }
+    const user = await UserAccountService.findById(payload.sub);
+    if (!user) throw new AppError("User not found", 401);
 
-    const user = await UserAccountService.findById(payload.userId);
-    if (!user) {
-      throw new AppError("User not found", 401);
-    }
+    const newAccessToken = generateAccessToken({
+      userId: user._id.toString(),
+      sessionId: payload.session_id,
+      roles: user.roles || [],
+      permissions: user.permissions || {},
+    });
 
-    const newAccessToken = generateAccessToken(user);
+    // Update last used timestamp
+    await RefreshTokenService.updateLastUsed(storedToken._id.toString());
+
     res.cookie("accessToken", newAccessToken, ACCESS_COOKIE_OPTIONS);
-
     return res.json({ message: "Access token refreshed" });
   } catch (err) {
     next(err);
@@ -129,31 +151,25 @@ export const refreshToken = async (req, res, next) => {
 };
 
 /**
- * Logout user by revoking refresh token and clearing cookies.
+ * Logout a user by revoking refresh token and clearing cookies.
  *
- * Workflow:
- * - Revokes the stored refresh token in DB (if present).
- * - Clears both `accessToken` and `refreshToken` cookies.
- *
- * Errors:
- * - 500 Internal Server Error → Unexpected failures during logout
+ * - Marks refresh token as revoked in DB.
+ * - Clears access and refresh token cookies.
  *
  * @async
  * @function logout
- * @param {import("express").Request} req - Express request (may contain `refreshToken` cookie).
+ * @param {import("express").Request} req - Express request object (may contain `refreshToken` cookie).
  * @param {import("express").Response} res - Express response object.
- * @param {import("express").NextFunction} next - Express next middleware function.
- * @returns {Promise<void>} Responds with JSON `{ message: string }`.
+ * @param {import("express").NextFunction} next - Next middleware function.
+ * @returns {Promise<void>} JSON response with success message.
  */
 export const logout = async (req, res, next) => {
   try {
     const token = req.cookies?.refreshToken;
-    if (token) {
-      await RefreshTokenService.revokeToken(token, req.ip);
-    }
+    if (token) await RefreshTokenService.revokeToken(token, req.ip);
 
-    res.clearCookie("accessToken", { path: ACCESS_COOKIE_OPTIONS_PATH });
-    res.clearCookie("refreshToken", { path: REFRESH_COOKIE_OPTIONS_PATH });
+    res.clearCookie("accessToken", { path: "/" });
+    res.clearCookie("refreshToken", { path: "/auth/refresh" });
 
     return res.json({ message: "Logged out" });
   } catch (err) {

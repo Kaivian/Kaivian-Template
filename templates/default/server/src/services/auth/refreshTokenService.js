@@ -1,91 +1,139 @@
 // server/src/services/auth/refreshTokenService.js
 import * as RefreshTokenRepo from "../../repositories/auth/refreshTokenRepository.js";
+import crypto from "crypto";
 
 /**
- * Create a new refresh token in the database.
+ * Hash a refresh token using SHA-256.
  *
- * - Deletes all previous refresh tokens for the user to ensure only one active token.
- * - Creates and persists a new refresh token.
+ * @param {string} token - Raw refresh token
+ * @returns {string} SHA-256 hash of the token
+ */
+const hashToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+/**
+ * Create a new refresh token for a user session.
+ * Revokes all previous active tokens for this user.
  *
  * @async
- * @function createToken
- * @param {Object} params - Token creation parameters.
- * @param {string} params.userId - ID of the user.
- * @param {string} params.token - The refresh token string.
- * @param {Date} params.expiresAt - Expiration date of the token.
- * @param {string|null} [params.createdByIp] - IP address where the token was issued.
- * @returns {Promise<import("../../models/auth/refreshTokenModel.js").default>} The newly created refresh token document.
+ * @param {Object} params
+ * @param {string} params.userId - User ID (Mongo ObjectId)
+ * @param {string} params.sessionId - Unique session ID (UUID)
+ * @param {string} params.token - Raw refresh token
+ * @param {Date} params.expiresAt - Expiration date
+ * @param {Object} [params.device={}] - Device info: { ip, userAgent, os }
+ * @returns {Promise<Object>} Newly created refresh token document
  */
-export const createToken = async ({ userId, token, expiresAt, createdByIp }) => {
-  await RefreshTokenRepo.deleteMany({ user: userId });
-  
+export const createToken = async ({
+  userId,
+  sessionId,
+  token,
+  expiresAt,
+  device = {},
+}) => {
+  // Revoke all existing active tokens for this user
+  await RefreshTokenRepo.updateMany(
+    { user_id: userId, status: "active" },
+    { status: "revoked", revokedAt: new Date(), revokedByIp: device.ip || null }
+  );
+
+  // Create new refresh token
   return RefreshTokenRepo.create({
-    user: userId,
-    token,
+    user_id: userId,
+    session_id: sessionId,
+    refresh_token_hash: hashToken(token),
+    device: {
+      ip: device.ip || null,
+      userAgent: device.userAgent || null,
+      os: device.os || null,
+    },
+    status: "active",
+    createdAt: new Date(),
     expiresAt,
-    createdByIp,
+    revokedAt: null,
+    revokedByIp: null,
+    lastUsedAt: null,
   });
 };
 
 /**
- * Find a valid (not revoked) refresh token by token string and user ID.
+ * Find a valid refresh token by raw token string and user ID.
  *
  * @async
- * @function findToken
- * @param {string} token - Refresh token string
- * @param {string} userId - ID of the user
- * @returns {Promise<Object|null>} The refresh token document if found, otherwise null
+ * @param {string} token - Raw refresh token
+ * @param {string} userId - User ID
+ * @returns {Promise<Object|null>} Refresh token document if valid
  */
 export const findToken = async (token, userId) => {
   return RefreshTokenRepo.findOne({
-    token,
-    user: userId,
+    user_id: userId,
+    refresh_token_hash: hashToken(token),
+    status: "active",
     revokedAt: null,
+    expiresAt: { $gt: new Date() },
   });
 };
 
 /**
- * Revoke a refresh token.
+ * Revoke a single refresh token.
  *
  * @async
- * @function revokeToken
- * @param {string} token - Refresh token string
- * @param {string|null} [revokedByIp=null] - IP address of the client revoking the token
- * @returns {Promise<Object|null>} Updated refresh token document if found, otherwise null
+ * @param {string} token - Raw refresh token
+ * @param {string|null} [revokedByIp=null] - IP address revoking the token
+ * @returns {Promise<Object|null>} Updated refresh token document
  */
 export const revokeToken = async (token, revokedByIp = null) => {
   return RefreshTokenRepo.findOneAndUpdate(
-    { token },
-    { revokedAt: new Date(), revokedByIp },
+    { refresh_token_hash: hashToken(token), status: "active" },
+    { status: "revoked", revokedAt: new Date(), revokedByIp },
     { new: true }
   );
 };
 
 /**
- * Revoke all refresh tokens for a user.
+ * Update the lastUsedAt timestamp for a refresh token.
  *
  * @async
- * @function revokeAllTokensForUser
- * @param {string} userId - ID of the user
- * @param {string|null} [revokedByIp=null] - IP address of the client revoking the tokens
- * @returns {Promise<number>} Number of tokens revoked
+ * @param {string} token - Raw refresh token
+ * @returns {Promise<Object|null>} Updated refresh token document
  */
-export const revokeAllTokensForUser = async (userId, revokedByIp = null) => {
-  const result = await RefreshTokenRepo.updateMany(
-    { user: userId, revokedAt: null },
-    { revokedAt: new Date(), revokedByIp }
+export const updateLastUsed = async (token) => {
+  return RefreshTokenRepo.findOneAndUpdate(
+    { refresh_token_hash: hashToken(token), status: "active" },
+    { lastUsedAt: new Date() },
+    { new: true }
   );
-  return result.modifiedCount;
 };
 
 /**
- * Get all refresh tokens for a user.
+ * Find an active refresh token by user ID.
+ * Returns the single active token if exists.
  *
  * @async
- * @function getTokensForUser
- * @param {string} userId - ID of the user
- * @returns {Promise<Object[]>} List of refresh token documents
+ * @param {string} userId - User ID
+ * @returns {Promise<Object|null>} Active refresh token document or null
  */
-export const getTokensForUser = async (userId) => {
-  return RefreshTokenRepo.findAll({ user: userId });
+export const findActiveTokenByUser = async (userId) => {
+  return RefreshTokenRepo.findOne({
+    user_id: userId,
+    status: "active",
+    revokedAt: null,
+    expiresAt: { $gt: new Date() },
+  });
+};
+
+/**
+ * Update an existing refresh token document by ID.
+ *
+ * @async
+ * @param {string} tokenId - Refresh token document ID
+ * @param {Object} updateData - Fields to update
+ * @returns {Promise<Object|null>} Updated refresh token document
+ */
+export const updateToken = async (tokenId, updateData) => {
+  return RefreshTokenRepo.findOneAndUpdate(
+    { _id: tokenId },
+    updateData,
+    { new: true }
+  );
 };
