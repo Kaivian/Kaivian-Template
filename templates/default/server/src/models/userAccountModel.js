@@ -18,6 +18,7 @@ const { Schema } = mongoose;
  * @property {string|null} [phone] - Optional phone number.
  * @property {boolean} isActive - Status flag to indicate if the account is active (default: true).
  * @property {mongoose.ObjectId[]} roles - References to Role documents assigned to the user.
+ * @property {number} tokenVersion - Increments when revoking all tokens (default: 0).
  * @property {mongoose.ObjectId} createdBy - Reference to the User who created this account.
  * @property {mongoose.ObjectId|null} updatedBy - Reference to the User who last updated this account.
  * @property {Date} createdAt - Timestamp when the account was created (auto-generated).
@@ -61,6 +62,10 @@ const UserAccountSchema = new Schema(
         ref: "Role",
       },
     ],
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

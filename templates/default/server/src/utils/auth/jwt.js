@@ -18,17 +18,11 @@ const {
  * @param {Object} params
  * @param {string} params.userId - User ID
  * @param {string} params.sessionId - Session ID tied to this login
- * @param {string[]} [params.roles=[]] - User roles
- * @param {Object} [params.permissions={}] - Fine-grained permissions
+ * @param {number} params.tokenVersion - Current token version of the user
  * @returns {string} Signed JWT access token
  * @throws {AppError} If required params are missing
  */
-export const generateAccessToken = ({
-  userId,
-  sessionId,
-  roles = [],
-  permissions = {},
-}) => {
+export const generateAccessToken = ({ userId, sessionId, tokenVersion }) => {
   if (!userId || !sessionId) {
     throw new AppError("userId and sessionId are required to generate access token.", 500);
   }
@@ -36,8 +30,8 @@ export const generateAccessToken = ({
   const payload = {
     sub: String(userId),
     session_id: String(sessionId),
-    roles,
-    permissions,
+    tokenVersion: Number(tokenVersion || 0),
+    type: "access",
   };
 
   return signToken(payload, JWT_SECRET, {
@@ -130,10 +124,7 @@ const signToken = (payload, secret, options) => {
  */
 const verifyToken = (token, secret, type) => {
   if (!secret) {
-    throw new AppError(
-      `Missing JWT ${type} secret in environment variables.`,
-      500
-    );
+    throw new AppError(`Missing JWT ${type} secret in environment variables.`, 500);
   }
   if (!token) {
     throw new AppError(`${type} token is required.`, 401);
@@ -145,9 +136,6 @@ const verifyToken = (token, secret, type) => {
       audience: type === "access" ? JWT_AUDIENCE : undefined,
     });
   } catch (err) {
-    throw new AppError(
-      `Invalid or expired ${type} token: ${err.message}`,
-      403
-    );
+    throw new AppError(`Invalid or expired ${type} token: ${err.message}`, 403);
   }
 };
