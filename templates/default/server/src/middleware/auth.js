@@ -66,6 +66,7 @@ export const authenticate = async (req, res, next) => {
     req.user = {
       id: decoded.sub,
       sessionId: decoded.session_id,
+      tokenVersion: decoded.tokenVersion,
     };
 
     return next();
