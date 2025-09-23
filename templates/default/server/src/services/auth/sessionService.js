@@ -1,5 +1,5 @@
 // server/src/services/auth/sessionService.js
-import UserAccount from "../model/userAccountModel.js";
+import UserAccount from "../../models/userAccountModel.js";
 
 /**
  * Get the current token version of a user.
