@@ -1,5 +1,5 @@
 {
-  "name": "my_frontend",
+  "name": "app-name-client",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -9,13 +9,15 @@
     "lint": "eslint --fix"
   },
   "dependencies": {
-    "@heroui/react": "^2.8.2",
+    "@heroui/react": "^2.8.4",
     "@react-aria/ssr": "3.9.10",
     "@react-aria/visually-hidden": "3.8.27",
+    "axios": "^1.12.2",
     "clsx": "2.1.1",
     "framer-motion": "11.18.2",
     "intl-messageformat": "10.7.16",
-    "next": "15.5.3",
+    "lucide-react": "^0.544.0",
+    "next": "15.5.4",
     "next-themes": "0.4.6",
     "react": "18.3.1",
     "react-dom": "18.3.1"

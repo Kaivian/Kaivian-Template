@@ -1,4 +1,4 @@
-// src/config/env.ts
+// client/config/config.ts
 
 /**
  * Frontend environment configuration for Next.js

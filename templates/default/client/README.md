@@ -51,12 +51,12 @@ The client includes Heroui components. Refer to https://heroui.com/ for usage an
 ## Environment Variables
 Create a `.env.local` file in the `client/` folder for client-side config. Variables must be prefixed with `NEXT_PUBLIC_` to be exposed to the browser, e.g.:
 ```
-NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 Adjust to match the server URL and port you use.
 
 ## Connecting to the Server
-If your server runs on a different port (e.g., 4000), ensure API calls point to `NEXT_PUBLIC_API_URL` or similar configuration.
+If your server runs on a different port (e.g., 5000), ensure API calls point to `NEXT_PUBLIC_API_URL` or similar configuration.
 
 ## Troubleshooting
 - Port already in use: close the app using port 3000 or change the port with `-p` (e.g., `next dev -p 3001`).
